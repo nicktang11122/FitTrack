@@ -23,25 +23,23 @@ export default function WorkoutTable() {
         console.error("Error fetching workouts:", error);
       }
     };
-   
+    fetchWorkouts();
   }, []);
   return (
     <table className="table w-full">
       <thead>
         <tr>
           <th>Date</th>
-          <th>Workout Type</th>
-          <th>Duration</th>
-          <th>Calories Burned</th>
+          <th>Name</th>
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td>2023-10-01</td>
-          <td>Running</td>
-          <td>30 mins</td>
-          <td>300 kcal</td>
-        </tr>
+        {workouts.map((workout: any) => (
+          <tr key={workout.id}>
+            <td>{workout.date}</td>
+            <td>{workout.name}</td>
+          </tr>
+        ))}
       </tbody>
     </table>
   );
