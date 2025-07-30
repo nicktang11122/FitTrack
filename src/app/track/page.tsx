@@ -1,6 +1,7 @@
 import { createClient } from "../../../utils/supabase/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import WorkoutTable from "../components/WorkoutTable";
 
 export default async function Home() {
   //   const cookieStore = cookies();
@@ -21,24 +22,7 @@ export default async function Home() {
       <button className="btn btn-primary absolute top-4 right-4 hover:btn-secondary">
         + Add Workout
       </button>
-      <table className="table w-full">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Workout Type</th>
-            <th>Duration</th>
-            <th>Calories Burned</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>2023-10-01</td>
-            <td>Running</td>
-            <td>30 mins</td>
-            <td>300 kcal</td>
-          </tr>
-        </tbody>
-      </table>
+      <WorkoutTable />
     </div>
   );
 }
