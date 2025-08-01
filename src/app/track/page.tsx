@@ -2,6 +2,7 @@ import { createClient } from "../../../utils/supabase/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import WorkoutTable from "../components/WorkoutTable";
+import AddWorkoutButton from "../components/AddWorkoutButton";
 
 export default async function Home() {
   //   const cookieStore = cookies();
@@ -19,9 +20,7 @@ export default async function Home() {
       <h2 className="text-5xl font-bold absolute top-4 center ">
         Your Workout History
       </h2>
-      <button className="btn btn-primary absolute top-4 right-4 hover:btn-secondary">
-        + Add Workout
-      </button>
+      <AddWorkoutButton />
       <WorkoutTable />
     </div>
   );
