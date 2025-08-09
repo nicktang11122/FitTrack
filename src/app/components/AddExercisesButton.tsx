@@ -9,6 +9,14 @@ import {
 } from "@headlessui/react";
 import { createClient } from "../../../utils/supabase/client";
 
+// Make a helper function for everytime I click add Exercise in the dialog, I will have a temp array be
+// updated with the new exercises and I will check if the new exevrcises already exist in the temp array json.
+
+//And then predefine some exercises in the database, some things to ask chat is for the created_by field,
+// should I use null so that all profiles can see the predefined exercises
+// or should I add a new table specifically for predefined exercises?
+
+
 export default function AddExercisesButton() {
   const [showDialog, setShowDialog] = useState(false);
   const [exercises, setExercises] = useState([{ name: "" }]);
