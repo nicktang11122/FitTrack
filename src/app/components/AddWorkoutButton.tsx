@@ -7,6 +7,7 @@ import {
   DialogTitle,
   DialogBackdrop,
 } from "@headlessui/react";
+import { createClient } from "../../../utils/supabase/client";
 
 export default function AddWorkoutButton() {
   const [showDialog, setShowDialog] = useState(false);
@@ -15,7 +16,8 @@ export default function AddWorkoutButton() {
   const [exercises, setExercises] = useState([
     { name: "", sets: "", reps: "", weight: "" },
   ]);
-
+  const [userID, setUserID] = useState<string | null>(null);
+  const supabase = createClient();
   const handleAddExercise = () => {
     setExercises([...exercises, { name: "", sets: "", reps: "", weight: "" }]);
   };
@@ -34,18 +36,45 @@ export default function AddWorkoutButton() {
     setExercises(updated);
   };
 
-  // need to fix. Submit workouts and exercises separately preferbly in a transaction at the same time, if one fails both fail. Then
-  // Submit both the workout id and exercise id to the join table exercise_logs.
+  const fetchUserId = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session || !data.session.access_token) {
+        console.error("No active session");
+        return;
+      }
+
+      // Fetch user data from the backend
+      const response = await fetch("/api/FetchUserID", {
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setUserID(result.userID);
+        //log the fetched user ID for debugging
+        console.log("Fetched user ID:", result.userID);
+      } else {
+        console.error("Failed to fetch user session.");
+      }
+    } catch (error) {
+      console.error("Error fetching user session:", error);
+    }
+  };
+
   const handleSaveWorkout = async () => {
     try {
       // 1. Create the workout
-      const res = await fetch("/api/workouts", {
+      const res = await fetch("/api/AddWorkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: workoutName,
           date: workoutDate,
-          userId: "current-user-id", // Replace with actual user ID logic
+          userId: userID, // Use the fetched user ID
         }),
       });
 
@@ -53,15 +82,15 @@ export default function AddWorkoutButton() {
         throw new Error("Failed to create workout");
       }
 
+      console.log("Workout created successfully");
       const workout = await res.json(); // should contain `id` (UUID)
 
       // 2. Submit each exercise with workoutId
       for (const ex of exercises) {
-        const exerciseRes = await fetch("/api/exercises", {
+        const exerciseRes = await fetch("/api/AddExercise", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            workoutId: workout.id, // UUID from the created workout
             name: ex.name,
             sets: ex.sets,
             reps: ex.reps,
@@ -69,10 +98,38 @@ export default function AddWorkoutButton() {
           }),
         });
 
+        console.log("Exercise data:", {
+          name: ex.name,
+          sets: ex.sets,
+          reps: ex.reps,
+          weight: ex.weight,
+        });
         if (!exerciseRes.ok) {
           throw new Error(`Failed to add exercise: ${ex.name}`);
         }
+
+        const exerciseData = await exerciseRes.json();
+        // 3. Submit each exerciseID linked to the workout to exercise_log table
+        const logRes = await fetch("/api/AddExerciseLog", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workoutId: workout.id, // Use the created workout ID
+            exerciseId: exerciseData.id, // Use the created exercise ID
+          }),
+        });
+        if (!logRes.ok) {
+          throw new Error(`Failed to log exercise: ${ex.name}`);
+        }
       }
+      // 4. Close the dialog and reset fields
+      setShowDialog(false);
+      setWorkoutName("");
+      setWorkoutDate("");
+      setExercises([{ name: "", sets: "", reps: "", weight: "" }]);
+
+      // 5. Optionally, refresh the workout list or show a success message
+      console.log("Workout and exercises saved successfully");
 
       alert("Workout saved successfully!");
     } catch (error) {
@@ -193,7 +250,7 @@ export default function AddWorkoutButton() {
               >
                 Cancel
               </button>
-              <button className="btn btn-primary" onClick={handleSave}>
+              <button className="btn btn-primary" onClick={handleSaveWorkout}>
                 Save Workout
               </button>
             </div>
