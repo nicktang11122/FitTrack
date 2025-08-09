@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import WorkoutTable from "../components/WorkoutTable";
 import AddWorkoutButton from "../components/AddWorkoutButton";
+import AddExercisesButton from "../components/AddExercisesButton";
 
 export default async function Home() {
   //   const cookieStore = cookies();
@@ -21,6 +22,7 @@ export default async function Home() {
         Your Workout History
       </h2>
       <AddWorkoutButton />
+      <AddExercisesButton />
       <WorkoutTable />
     </div>
   );

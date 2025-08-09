@@ -28,7 +28,7 @@ export async function GET(req: Request) {
 
     // Return user data
     return NextResponse.json(
-      { username: user.user_metadata?.id || "id" },
+      { userID: user.id }, 
       { status: 200 }
     );
   } catch (error: any) {
