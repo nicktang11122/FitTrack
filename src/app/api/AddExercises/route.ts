@@ -9,6 +9,7 @@ export async function POST(req: Request) {
   try {
     const { user_id, exercises } = await req.json();
 
+    // Validate input
     if (!user_id || !Array.isArray(exercises) || exercises.length === 0) {
       return NextResponse.json(
         { message: "Missing required fields" },
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
 
     if (newExercises.length === 0) {
       return NextResponse.json(
-        { message: "No new exercises to add." },
+        { message: "Exercises already exist in the database" },
         { status: 200 }
       );
     }
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
     }
     return NextResponse.json(
       {
-        message: "Exercises added successfully",
+        message: "Exercises added successfully", 
         added: data.length,
         skipped: exercises.length - newExercises.length,
         data,
