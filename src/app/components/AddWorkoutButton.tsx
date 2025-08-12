@@ -9,6 +9,12 @@ import {
 } from "@headlessui/react";
 import { createClient } from "../../../utils/supabase/client";
 
+type dbExercises = {
+  name: string;
+};
+
+
+//Fixes needed: Select is not dynamically updated, Submitting data to the database, no edge cases considered yet, formattign and commenting code
 export default function AddWorkoutButton() {
   const [showDialog, setShowDialog] = useState(false);
   const [workoutName, setWorkoutName] = useState("");
@@ -17,15 +23,20 @@ export default function AddWorkoutButton() {
     { name: "", sets: "", reps: "", weight: "" },
   ]);
   const [userID, setUserID] = useState<string | null>(null);
+  const [dbExercises, setDBExercises] = useState<dbExercises[]>([]);
   const supabase = createClient();
+
+  // FUnction to handle adding exercises to the JSON
   const handleAddExercise = () => {
     setExercises([...exercises, { name: "", sets: "", reps: "", weight: "" }]);
   };
 
+  // Function to handle removing exercises from the JSON
   const handleRemoveExercise = (index: number) => {
     setExercises(exercises.filter((_, i) => i !== index));
   };
 
+  // Function to handle the change of exercises in the JSON
   const handleChangeExercise = (
     index: number,
     field: string,
@@ -35,6 +46,33 @@ export default function AddWorkoutButton() {
     updated[index] = { ...updated[index], [field]: value };
     setExercises(updated);
   };
+
+  // Function to fetch exercises
+  useEffect(() => {
+    const fetchExercises = async () => {
+      try {
+        const response = await fetch("/api/FetchExercises", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch workouts");
+        }
+
+        const data = await response.json();
+        console.log("Fetched workouts:", data);
+        setDBExercises(data);
+        console.log("Exercises Set");
+      } catch (error) {
+        console.error("Error fetching workouts:", error);
+      }
+    };
+
+    fetchExercises();
+  }, []);
 
   const fetchUserId = async () => {
     try {
@@ -65,79 +103,9 @@ export default function AddWorkoutButton() {
     }
   };
 
-  const handleSaveWorkout = async () => {
-    try {
-      // 1. Create the workout
-      const res = await fetch("/api/AddWorkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: workoutName,
-          date: workoutDate,
-          userId: userID, // Use the fetched user ID
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to create workout");
-      }
-
-      console.log("Workout created successfully");
-      const workout = await res.json(); // should contain `id` (UUID)
-
-      // 2. Submit each exercise with workoutId
-      for (const ex of exercises) {
-        const exerciseRes = await fetch("/api/AddExercise", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: ex.name,
-            sets: ex.sets,
-            reps: ex.reps,
-            weight: ex.weight,
-          }),
-        });
-
-        console.log("Exercise data:", {
-          name: ex.name,
-          sets: ex.sets,
-          reps: ex.reps,
-          weight: ex.weight,
-        });
-        if (!exerciseRes.ok) {
-          throw new Error(`Failed to add exercise: ${ex.name}`);
-        }
-
-        const exerciseData = await exerciseRes.json();
-        // 3. Submit each exerciseID linked to the workout to exercise_log table
-        const logRes = await fetch("/api/AddExerciseLog", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workoutId: workout.id, // Use the created workout ID
-            exerciseId: exerciseData.id, // Use the created exercise ID
-          }),
-        });
-        if (!logRes.ok) {
-          throw new Error(`Failed to log exercise: ${ex.name}`);
-        }
-      }
-      // 4. Close the dialog and reset fields
-      setShowDialog(false);
-      setWorkoutName("");
-      setWorkoutDate("");
-      setExercises([{ name: "", sets: "", reps: "", weight: "" }]);
-
-      // 5. Optionally, refresh the workout list or show a success message
-      console.log("Workout and exercises saved successfully");
-
-      alert("Workout saved successfully!");
-    } catch (error) {
-      console.error("Error saving workout:", error);
-      alert("There was an error saving your workout.");
-    }
+  const handleSaveWorkout = () => {
+    return;
   };
-
   return (
     <div>
       <button
@@ -191,24 +159,21 @@ export default function AddWorkoutButton() {
                   key={index}
                   className="flex flex-wrap gap-2 items-center mb-2"
                 >
-                  <input
-                    className="input input-bordered w-[120px]"
-                    placeholder="Exercise"
+                  <select
+                    className=" border rounded-md data-focus:bg-blue-100 data-hover:shadow w-[120px] h-[40px] bg-base-100 text-black-100 pl-1"
                     value={exercise.name}
                     onChange={(e) =>
                       handleChangeExercise(index, "name", e.target.value)
                     }
-                  />
+                  >
+                    {dbExercises.map((ex, i) => (
+                      <option key={i} value={ex.name}>
+                        {ex.name}
+                      </option>
+                    ))}
+                  </select>
                   <input
-                    className="input input-bordered w-[80px]"
-                    placeholder="Set"
-                    value={exercise.sets}
-                    onChange={(e) =>
-                      handleChangeExercise(index, "sets", e.target.value)
-                    }
-                  />
-                  <input
-                    className="input input-bordered w-[80px]"
+                    className="input input-bordered w-[80px] "
                     placeholder="Reps"
                     value={exercise.reps}
                     onChange={(e) =>
