@@ -13,7 +13,6 @@ type dbExercises = {
   name: string;
 };
 
-
 //Fixes needed: Select is not dynamically updated, Submitting data to the database, no edge cases considered yet, formattign and commenting code
 export default function AddWorkoutButton() {
   const [showDialog, setShowDialog] = useState(false);
@@ -160,18 +159,29 @@ export default function AddWorkoutButton() {
                   className="flex flex-wrap gap-2 items-center mb-2"
                 >
                   <select
-                    className=" border rounded-md data-focus:bg-blue-100 data-hover:shadow w-[120px] h-[40px] bg-base-100 text-black-100 pl-1"
+                    className=" border rounded-md data-focus:bg-blue-100 data-hover:shadow w-[120px] h-[40px] bg-base-100 text-black-100 pl-1 text-md"
                     value={exercise.name}
                     onChange={(e) =>
                       handleChangeExercise(index, "name", e.target.value)
                     }
                   >
+                    <option className="text-sm" value="">
+                      Select
+                    </option>
                     {dbExercises.map((ex, i) => (
                       <option key={i} value={ex.name}>
                         {ex.name}
                       </option>
                     ))}
                   </select>
+                  <input
+                    className="input input-bordered w-[80px] "
+                    placeholder="Set"
+                    value={exercise.sets}
+                    onChange={(e) =>
+                      handleChangeExercise(index, "sets", e.target.value)
+                    }
+                  />
                   <input
                     className="input input-bordered w-[80px] "
                     placeholder="Reps"

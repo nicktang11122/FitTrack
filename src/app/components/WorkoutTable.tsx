@@ -52,13 +52,13 @@ export default function WorkoutTable() {
             </td>
             <td className="border border-black-300 px-4 py-2">
               <div className="flex space-x-2">
-                <button className="bg-primary text-white px-3 py-1 rounded hover:bg-blue-700">
+                <button className="bg-primary text-white px-3 py-1 rounded hover:bg-secondary">
                   View
                 </button>
-                <button className="bg-primary text-white px-3 py-1 rounded hover:bg-blue-700">
+                <button className="bg-primary text-white px-3 py-1 rounded hover:bg-secondary">
                   Update
                 </button>
-                <button className="bg-primary text-white px-3 py-1 rounded hover:bg-blue-700">
+                <button className="bg-primary text-white px-3 py-1 rounded hover:bg-secondary">
                   Delete
                 </button>
               </div>
