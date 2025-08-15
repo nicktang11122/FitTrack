@@ -13,7 +13,7 @@ type dbExercises = {
   name: string;
 };
 
-//Fixes needed: Select is not dynamically updated, Submitting data to the database, no edge cases considered yet, formattign and commenting code
+//FIXES NEEDED: Refactor save workout to go under one API, so that we can do a transaction request. THis will also hopefully fix getting the workoutID and any code redundency
 export default function AddWorkoutButton() {
   const [showDialog, setShowDialog] = useState(false);
   const [workoutName, setWorkoutName] = useState("");
@@ -99,70 +99,72 @@ export default function AddWorkoutButton() {
     }
   };
 
-
   // Function to save Workout
   const handleSaveWorkout = async () => {
-  const fetchedId = await fetchUserId();
+    const fetchedId = await fetchUserId();
 
-  //validate id
-  if (!fetchedId) {
-    setStatusType("error");
-    setStatusMessage("User ID is not set. Please log in.");
-    return;
-  }
+    //validate id
+    if (!fetchedId) {
+      setStatusType("error");
+      setStatusMessage("User ID is not set. Please log in.");
+      return;
+    }
 
-  //validate input is not empty
-  if (!workoutName || !workoutDate || exercises.length === 0) {
-    setStatusType("error");
-    setStatusMessage("Please fill in all required fields.");
-    return;
-  }
+    //validate input is not empty
+    if (!workoutName || !workoutDate || exercises.length === 0) {
+      setStatusType("error");
+      setStatusMessage("Please fill in all required fields.");
+      return;
+    }
 
-  // Convert exercise fields to numbers where applicable
-  const normalizedExercises = exercises.map(ex => ({
-    ...ex,
-    sets: Number(ex.sets),
-    reps: Number(ex.reps),
-    weight: Number(ex.weight),
-  }));
+    // Convert exercise fields to numbers where applicable
+    const normalizedExercises = exercises.map((ex) => ({
+      ...ex,
+      sets: Number(ex.sets),
+      reps: Number(ex.reps),
+      weight: Number(ex.weight),
+    }));
 
-  try {
-    // Save workout
-    const wResponse = await fetch("/api/AddWorkouts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: fetchedId,
-        workoutName,
-        workoutDate,
-      }),
-    });
+    try {
+      // Save workout
+      const wResponse = await fetch("/api/AddWorkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: fetchedId,
+          workoutName,
+          workoutDate,
+        }),
+      });
 
-    const wData = await wResponse.json();
-    if (!wResponse.ok) throw new Error(wData.message || "Failed to save workout");
+      const wData = await wResponse.json();
+      if (!wResponse.ok)
+        throw new Error(wData.message || "Failed to save workout");
 
-    // Insert exercise log
-    const logResponse = await fetch("/api/LogWorkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        workoutID: wData.id,
-        exercises: normalizedExercises,
-      }),
-    });
+      // Insert exercise log
+      const logResponse = await fetch("/api/LogWorkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: fetchedId,
+          workoutID: wData.id,
+          exercises: normalizedExercises,
+        }),
+      });
 
-    const log = await logResponse.json();
-    if (!logResponse.ok) throw new Error(log.message || "Failed to save workout log");
+      const log = await logResponse.json();
+      if (!logResponse.ok)
+        throw new Error(log.message || "Failed to save workout log");
 
-    // Success feedback
-    setStatusType("success");
-    setStatusMessage("Workout saved successfully!");
-    setShowDialog(false);
-  } catch (e) {
-    setStatusType("error");
-    setStatusMessage((e as Error).message || "Failed to save workout");
-  }
-};
+      // Success feedback
+      setStatusType("success");
+      setStatusMessage("Workout saved successfully!");
+      setShowDialog(false);
+    } catch (e) {
+      setStatusType("error");
+      setStatusMessage((e as Error).message || "Failed to save workout");
+    }
+  };
 
   return (
     <div>

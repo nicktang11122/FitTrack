@@ -7,47 +7,73 @@ export async function POST(req: Request) {
   const supabase = await createClient(cookieStore);
 
   try {
-    const { workoutID, exercises } = await req.json();
+    const { user_id, workoutID, exercises } = await req.json();
 
     // Validate input
-    if (!Array.isArray(exercises) || exercises.length === 0 || !workoutID) {
+    if (
+      !user_id ||
+      !Array.isArray(exercises) ||
+      exercises.length === 0 ||
+      !workoutID
+    ) {
+      console.log("error1");
+      console.log(user_id);
+      console.log(workoutID);
+      console.log(exercises);
       return NextResponse.json(
         { message: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Prepare insert data for new exercises
-    const insertData = {
-      sessionName: workoutName.trim(),
-      date: workoutDate,
-      user_id: user_id,
-    };
+    // Get just the names from exercises
+    const exerciseNames = exercises.map((ex: { name: string }) => ex.name);
 
-    // Insert only the new exercises
-    const { data, error } = await supabase
-      .from("workout_sessions")
-      .insert(insertData)
-      .select();
+    // 1️ Fetch existing exercises for this user
+    const { data: existing, error: fetchError } = await supabase
+      .from("exercises")
+      .select("id, name")
+      .eq("created_by", user_id)
+      .in("name", exerciseNames);
 
-    if (error) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
-    }
+    if (fetchError) {
+      console.log("error2");
 
-    if (!data) {
       return NextResponse.json(
-        { message: "Workout was not added." },
-        { status: 200 }
+        { message: fetchError.message },
+        { status: 400 }
       );
     }
+
+    //
+    const nameToId = new Map(existing.map((e) => [e.name, e.id]));
+
+    // 4️ Build log entries with correct IDs
+    const logEntries = exercises.map((ex) => ({
+      workout_id: workoutID,
+      exercise_id: nameToId.get(ex.name),
+      set_number: Number(ex.sets), // ensure numeric
+      reps: Number(ex.reps),
+      weight: Number(ex.weight),
+    }));
+
+    // 5 Insert into logs
+    const { error: logError } = await supabase
+      .from("exercise_logs")
+      .insert(logEntries);
+
+    if (logError) {
+      console.log("error3");
+
+      return NextResponse.json({ message: logError.message }, { status: 400 });
+    }
+
     return NextResponse.json(
-      {
-        message: "Workout added successfully",
-      },
+      { message: "Log added successfully" },
       { status: 200 }
     );
   } catch (error: any) {
-    console.error("Error adding exercises:", error);
+    console.error("Error adding log:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
       { status: 500 }
