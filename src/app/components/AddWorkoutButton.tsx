@@ -23,6 +23,12 @@ export default function AddWorkoutButton() {
   ]);
   const [userID, setUserID] = useState<string | null>(null);
   const [dbExercises, setDBExercises] = useState<dbExercises[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusType, setStatusType] = useState<"success" | "error" | null>(
+    null
+  );
+  const [isVisable, setMessageVisible] = useState(false);
+
   const supabase = createClient();
 
   // FUnction to handle adding exercises to the JSON
@@ -47,64 +53,117 @@ export default function AddWorkoutButton() {
   };
 
   // Function to fetch exercises
-  useEffect(() => {
-    const fetchExercises = async () => {
-      try {
-        const response = await fetch("/api/FetchExercises", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch workouts");
-        }
-
-        const data = await response.json();
-        console.log("Fetched workouts:", data);
-        setDBExercises(data);
-        console.log("Exercises Set");
-      } catch (error) {
-        console.error("Error fetching workouts:", error);
-      }
-    };
-
-    fetchExercises();
-  }, []);
-
-  const fetchUserId = async () => {
+  const fetchExercises = async () => {
     try {
-      const { data } = await supabase.auth.getSession();
-
-      if (!data.session || !data.session.access_token) {
-        console.error("No active session");
-        return;
-      }
-
-      // Fetch user data from the backend
-      const response = await fetch("/api/FetchUserID", {
+      const response = await fetch("/api/FetchExercises", {
+        method: "GET",
         headers: {
-          Authorization: `Bearer ${data.session.access_token}`,
+          "Content-Type": "application/json",
         },
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setUserID(result.userID);
-        //log the fetched user ID for debugging
-        console.log("Fetched user ID:", result.userID);
-      } else {
-        console.error("Failed to fetch user session.");
+      if (!response.ok) {
+        throw new Error("Failed to fetch workouts");
       }
+
+      const data = await response.json();
+      console.log("Fetched workouts:", data);
+      setDBExercises(data);
+      console.log("Exercises Set");
     } catch (error) {
-      console.error("Error fetching user session:", error);
+      console.error("Error fetching workouts:", error);
     }
   };
 
-  const handleSaveWorkout = () => {
-    return;
+  //Use effect to refetch exercises after opening the workout dialog
+  useEffect(() => {
+    if (showDialog) fetchExercises();
+  }, [showDialog]);
+
+  // Function to fetch user ID from Supabase Auth
+  const fetchUserId = async (): Promise<string | null> => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.access_token) return null;
+
+      const response = await fetch("/api/FetchUserID", {
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      });
+
+      if (!response.ok) return null;
+
+      const result = await response.json();
+      return result.userID || null;
+    } catch {
+      return null;
+    }
   };
+
+
+  // Function to save Workout
+  const handleSaveWorkout = async () => {
+  const fetchedId = await fetchUserId();
+
+  //validate id
+  if (!fetchedId) {
+    setStatusType("error");
+    setStatusMessage("User ID is not set. Please log in.");
+    return;
+  }
+
+  //validate input is not empty
+  if (!workoutName || !workoutDate || exercises.length === 0) {
+    setStatusType("error");
+    setStatusMessage("Please fill in all required fields.");
+    return;
+  }
+
+  // Convert exercise fields to numbers where applicable
+  const normalizedExercises = exercises.map(ex => ({
+    ...ex,
+    sets: Number(ex.sets),
+    reps: Number(ex.reps),
+    weight: Number(ex.weight),
+  }));
+
+  try {
+    // Save workout
+    const wResponse = await fetch("/api/AddWorkouts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: fetchedId,
+        workoutName,
+        workoutDate,
+      }),
+    });
+
+    const wData = await wResponse.json();
+    if (!wResponse.ok) throw new Error(wData.message || "Failed to save workout");
+
+    // Insert exercise log
+    const logResponse = await fetch("/api/LogWorkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workoutID: wData.id,
+        exercises: normalizedExercises,
+      }),
+    });
+
+    const log = await logResponse.json();
+    if (!logResponse.ok) throw new Error(log.message || "Failed to save workout log");
+
+    // Success feedback
+    setStatusType("success");
+    setStatusMessage("Workout saved successfully!");
+    setShowDialog(false);
+  } catch (e) {
+    setStatusType("error");
+    setStatusMessage((e as Error).message || "Failed to save workout");
+  }
+};
+
   return (
     <div>
       <button
