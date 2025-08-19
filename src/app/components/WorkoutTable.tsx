@@ -7,29 +7,40 @@ type Workout = {
 };
 export default function WorkoutTable() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  useEffect(() => {
-    const fetchWorkouts = async () => {
-      try {
-        const response = await fetch("/api/FetchWorkouts", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+  // Move fetchWorkouts outside so both effects can access it
+  const fetchWorkouts = async () => {
+    try {
+      const response = await fetch("/api/FetchWorkouts", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch workouts");
-        }
-
-        const data = await response.json();
-        console.log("Fetched workouts:", data);
-        setWorkouts(data);
-      } catch (error) {
-        console.error("Error fetching workouts:", error);
+      if (!response.ok) {
+        throw new Error("Failed to fetch workouts");
       }
-    };
+
+      const data = await response.json();
+      console.log("Fetched workouts:", data);
+      setWorkouts(data);
+    } catch (error) {
+      console.error("Error fetching workouts:", error);
+    }
+  };
+
+  // Fetch on initial load
+  useEffect(() => {
     fetchWorkouts();
   }, []);
+
+  // Re-fetch when "workout-added" event is dispatched
+  useEffect(() => {
+    const handler = () => fetchWorkouts();
+    window.addEventListener("workout-added", handler);
+    return () => window.removeEventListener("workout-added", handler);
+  }, []);
+
   return (
     <table className="table-auto w-full border-collapse border border-black-100">
       <thead className="bg-base-100">

@@ -21,7 +21,6 @@ export default function AddWorkoutButton() {
   const [exercises, setExercises] = useState([
     { name: "", sets: "", reps: "", weight: "" },
   ]);
-  const [userID, setUserID] = useState<string | null>(null);
   const [dbExercises, setDBExercises] = useState<dbExercises[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error" | null>(
@@ -99,6 +98,16 @@ export default function AddWorkoutButton() {
     }
   };
 
+  function fadeOutMessage() {
+    setTimeout(() => {
+      setMessageVisible(false);
+    }, 3000);
+
+    setTimeout(() => {
+      setStatusMessage(null);
+    }, 3600);
+  }
+
   // Function to save Workout
   const handleSaveWorkout = async () => {
     const fetchedId = await fetchUserId();
@@ -107,6 +116,7 @@ export default function AddWorkoutButton() {
     if (!fetchedId) {
       setStatusType("error");
       setStatusMessage("User ID is not set. Please log in.");
+      setShowDialog(false);
       return;
     }
 
@@ -114,6 +124,7 @@ export default function AddWorkoutButton() {
     if (!workoutName || !workoutDate || exercises.length === 0) {
       setStatusType("error");
       setStatusMessage("Please fill in all required fields.");
+      setShowDialog(false);
       return;
     }
 
@@ -126,7 +137,7 @@ export default function AddWorkoutButton() {
     }));
 
     try {
-      // Save workout
+      // Send request to add workout and log exercises
       const wResponse = await fetch("/api/AddWorkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,6 +145,7 @@ export default function AddWorkoutButton() {
           user_id: fetchedId,
           workoutName,
           workoutDate,
+          exercises: normalizedExercises,
         }),
       });
 
@@ -141,28 +153,17 @@ export default function AddWorkoutButton() {
       if (!wResponse.ok)
         throw new Error(wData.message || "Failed to save workout");
 
-      // Insert exercise log
-      const logResponse = await fetch("/api/LogWorkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: fetchedId,
-          workoutID: wData.id,
-          exercises: normalizedExercises,
-        }),
-      });
-
-      const log = await logResponse.json();
-      if (!logResponse.ok)
-        throw new Error(log.message || "Failed to save workout log");
-
       // Success feedback
       setStatusType("success");
       setStatusMessage("Workout saved successfully!");
+      window.dispatchEvent(new Event("workout-added"));
       setShowDialog(false);
+      fadeOutMessage;
     } catch (e) {
       setStatusType("error");
       setStatusMessage((e as Error).message || "Failed to save workout");
+      setShowDialog(false);
+      fadeOutMessage;
     }
   };
 
@@ -293,6 +294,18 @@ export default function AddWorkoutButton() {
           </DialogPanel>
         </div>
       </Dialog>
+      {/* Status Message*/}
+      {statusMessage && (
+        <div
+          className={`p-2 rounded ${
+            statusType === "success"
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}
+        >
+          {statusMessage}
+        </div>
+      )}
     </div>
   );
 }
