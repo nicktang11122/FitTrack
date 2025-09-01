@@ -9,6 +9,11 @@ import {
 } from "@headlessui/react";
 import { createClient } from "../../../utils/supabase/client";
 
+type dbExercises = {
+  name: string;
+};
+
+//FIXES NEEDED: Refactor save workout to go under one API, so that we can do a transaction request. THis will also hopefully fix getting the workoutID and any code redundency
 export default function AddWorkoutButton() {
   const [showDialog, setShowDialog] = useState(false);
   const [workoutName, setWorkoutName] = useState("");
@@ -16,16 +21,26 @@ export default function AddWorkoutButton() {
   const [exercises, setExercises] = useState([
     { name: "", sets: "", reps: "", weight: "" },
   ]);
-  const [userID, setUserID] = useState<string | null>(null);
+  const [dbExercises, setDBExercises] = useState<dbExercises[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusType, setStatusType] = useState<"success" | "error" | null>(
+    null
+  );
+  const [isVisable, setMessageVisible] = useState(false);
+
   const supabase = createClient();
+
+  // FUnction to handle adding exercises to the JSON
   const handleAddExercise = () => {
     setExercises([...exercises, { name: "", sets: "", reps: "", weight: "" }]);
   };
 
+  // Function to handle removing exercises from the JSON
   const handleRemoveExercise = (index: number) => {
     setExercises(exercises.filter((_, i) => i !== index));
   };
 
+  // Function to handle the change of exercises in the JSON
   const handleChangeExercise = (
     index: number,
     field: string,
@@ -36,105 +51,119 @@ export default function AddWorkoutButton() {
     setExercises(updated);
   };
 
-  const fetchUserId = async () => {
+  // Function to fetch exercises
+  const fetchExercises = async () => {
     try {
-      const { data } = await supabase.auth.getSession();
-
-      if (!data.session || !data.session.access_token) {
-        console.error("No active session");
-        return;
-      }
-
-      // Fetch user data from the backend
-      const response = await fetch("/api/FetchUserID", {
+      const response = await fetch("/api/FetchExercises", {
+        method: "GET",
         headers: {
-          Authorization: `Bearer ${data.session.access_token}`,
+          "Content-Type": "application/json",
         },
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setUserID(result.userID);
-        //log the fetched user ID for debugging
-        console.log("Fetched user ID:", result.userID);
-      } else {
-        console.error("Failed to fetch user session.");
+      if (!response.ok) {
+        throw new Error("Failed to fetch workouts");
       }
+
+      const data = await response.json();
+      console.log("Fetched workouts:", data);
+      setDBExercises(data);
+      console.log("Exercises Set");
     } catch (error) {
-      console.error("Error fetching user session:", error);
+      console.error("Error fetching workouts:", error);
     }
   };
 
-  const handleSaveWorkout = async () => {
+  //Use effect to refetch exercises after opening the workout dialog
+  useEffect(() => {
+    if (showDialog) fetchExercises();
+  }, [showDialog]);
+
+  // Function to fetch user ID from Supabase Auth
+  const fetchUserId = async (): Promise<string | null> => {
     try {
-      // 1. Create the workout
-      const res = await fetch("/api/AddWorkout", {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.access_token) return null;
+
+      const response = await fetch("/api/FetchUserID", {
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      });
+
+      if (!response.ok) return null;
+
+      const result = await response.json();
+      return result.userID || null;
+    } catch {
+      return null;
+    }
+  };
+
+  function fadeOutMessage() {
+    setTimeout(() => {
+      setMessageVisible(false);
+    }, 3000);
+
+    setTimeout(() => {
+      setStatusMessage(null);
+    }, 3600);
+  }
+
+  // Function to save Workout
+  const handleSaveWorkout = async () => {
+    const fetchedId = await fetchUserId();
+
+    //validate id
+    if (!fetchedId) {
+      setStatusType("error");
+      setStatusMessage("User ID is not set. Please log in.");
+      setShowDialog(false);
+      return;
+    }
+
+    //validate input is not empty
+    if (!workoutName || !workoutDate || exercises.length === 0) {
+      setStatusType("error");
+      setStatusMessage("Please fill in all required fields.");
+      setShowDialog(false);
+      return;
+    }
+
+    // Convert exercise fields to numbers where applicable
+    const normalizedExercises = exercises.map((ex) => ({
+      ...ex,
+      sets: Number(ex.sets),
+      reps: Number(ex.reps),
+      weight: Number(ex.weight),
+    }));
+
+    try {
+      // Send request to add workout and log exercises
+      const wResponse = await fetch("/api/AddWorkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: workoutName,
-          date: workoutDate,
-          userId: userID, // Use the fetched user ID
+          user_id: fetchedId,
+          workoutName,
+          workoutDate,
+          exercises: normalizedExercises,
         }),
       });
 
-      if (!res.ok) {
-        throw new Error("Failed to create workout");
-      }
+      const wData = await wResponse.json();
+      if (!wResponse.ok)
+        throw new Error(wData.message || "Failed to save workout");
 
-      console.log("Workout created successfully");
-      const workout = await res.json(); // should contain `id` (UUID)
-
-      // 2. Submit each exercise with workoutId
-      for (const ex of exercises) {
-        const exerciseRes = await fetch("/api/AddExercise", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: ex.name,
-            sets: ex.sets,
-            reps: ex.reps,
-            weight: ex.weight,
-          }),
-        });
-
-        console.log("Exercise data:", {
-          name: ex.name,
-          sets: ex.sets,
-          reps: ex.reps,
-          weight: ex.weight,
-        });
-        if (!exerciseRes.ok) {
-          throw new Error(`Failed to add exercise: ${ex.name}`);
-        }
-
-        const exerciseData = await exerciseRes.json();
-        // 3. Submit each exerciseID linked to the workout to exercise_log table
-        const logRes = await fetch("/api/AddExerciseLog", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workoutId: workout.id, // Use the created workout ID
-            exerciseId: exerciseData.id, // Use the created exercise ID
-          }),
-        });
-        if (!logRes.ok) {
-          throw new Error(`Failed to log exercise: ${ex.name}`);
-        }
-      }
-      // 4. Close the dialog and reset fields
+      // Success feedback
+      setStatusType("success");
+      setStatusMessage("Workout saved successfully!");
+      window.dispatchEvent(new Event("workout-added"));
       setShowDialog(false);
-      setWorkoutName("");
-      setWorkoutDate("");
-      setExercises([{ name: "", sets: "", reps: "", weight: "" }]);
-
-      // 5. Optionally, refresh the workout list or show a success message
-      console.log("Workout and exercises saved successfully");
-
-      alert("Workout saved successfully!");
-    } catch (error) {
-      console.error("Error saving workout:", error);
-      alert("There was an error saving your workout.");
+      fadeOutMessage;
+    } catch (e) {
+      setStatusType("error");
+      setStatusMessage((e as Error).message || "Failed to save workout");
+      setShowDialog(false);
+      fadeOutMessage;
     }
   };
 
@@ -191,16 +220,24 @@ export default function AddWorkoutButton() {
                   key={index}
                   className="flex flex-wrap gap-2 items-center mb-2"
                 >
-                  <input
-                    className="input input-bordered w-[120px]"
-                    placeholder="Exercise"
+                  <select
+                    className=" border rounded-md data-focus:bg-blue-100 data-hover:shadow w-[120px] h-[40px] bg-base-100 text-black-100 pl-1 text-md"
                     value={exercise.name}
                     onChange={(e) =>
                       handleChangeExercise(index, "name", e.target.value)
                     }
-                  />
+                  >
+                    <option className="text-sm" value="">
+                      Select
+                    </option>
+                    {dbExercises.map((ex, i) => (
+                      <option key={i} value={ex.name}>
+                        {ex.name}
+                      </option>
+                    ))}
+                  </select>
                   <input
-                    className="input input-bordered w-[80px]"
+                    className="input input-bordered w-[80px] "
                     placeholder="Set"
                     value={exercise.sets}
                     onChange={(e) =>
@@ -208,7 +245,7 @@ export default function AddWorkoutButton() {
                     }
                   />
                   <input
-                    className="input input-bordered w-[80px]"
+                    className="input input-bordered w-[80px] "
                     placeholder="Reps"
                     value={exercise.reps}
                     onChange={(e) =>
@@ -257,6 +294,18 @@ export default function AddWorkoutButton() {
           </DialogPanel>
         </div>
       </Dialog>
+      {/* Status Message*/}
+      {statusMessage && (
+        <div
+          className={`p-2 rounded ${
+            statusType === "success"
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}
+        >
+          {statusMessage}
+        </div>
+      )}
     </div>
   );
 }
