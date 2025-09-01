@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useState, use } from "react";
+import React, { useEffect, useState } from "react";
+import WorkoutButtons from "./WorkoutButtons";
 type Workout = {
   id: number;
   date: string;
@@ -63,15 +64,7 @@ export default function WorkoutTable() {
             </td>
             <td className="border border-black-300 px-4 py-2">
               <div className="flex space-x-2">
-                <button className="bg-primary text-white px-3 py-1 rounded hover:bg-secondary">
-                  View
-                </button>
-                <button className="bg-primary text-white px-3 py-1 rounded hover:bg-secondary">
-                  Update
-                </button>
-                <button className="bg-primary text-white px-3 py-1 rounded hover:bg-secondary">
-                  Delete
-                </button>
+                <WorkoutButtons workoutId={workout.id} />
               </div>
             </td>
           </tr>

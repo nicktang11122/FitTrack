@@ -17,6 +17,5 @@ export async function GET() {
       { status: 500 }
     );
   }
-  console.log("suscess");
   return NextResponse.json(exercises, { status: 200 });
 }
