@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../utils/supabase/server";
 import { cookies } from "next/headers";
+import { log } from "console";
 
 export async function POST(req: Request) {
   const cookieStore = cookies();
   const supabase = await createClient(cookieStore);
 
   try {
-    const { user_id, workoutName, workoutDate, exercises } = await req.json();
+    const { user_id, workout_id, workoutName, workoutDate, exercises } =
+      await req.json();
 
-    // Validate input
     if (
       !user_id ||
+      !workout_id ||
       !workoutName ||
       !workoutDate ||
       !Array.isArray(exercises) ||
@@ -22,39 +24,28 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    // Prepare insert data for new exercises
-    const insertData = {
-      sessionName: workoutName.trim(),
-      date: workoutDate,
-      user_id: user_id,
-    };
-
-    // Insert only the new exercises
-    const { data, error } = await supabase
+    // Update workout session details
+    const { error: updateError } = await supabase
       .from("workout_sessions")
-      .insert(insertData)
-      .select();
+      .update({ sessionName: workoutName.trim(), date: workoutDate })
+      .eq("id", workout_id);
 
-    // If there's an error, return it
-    if (error) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
-    }
-
-    // If no data is returned, return a message
-    if (!data) {
+    if (updateError) {
       return NextResponse.json(
-        { message: "Workout was not added." },
-        { status: 200 }
+        { message: updateError.message },
+        { status: 400 }
       );
     }
 
-    // Get the ID of the newly created workout session
-    const workoutID = data[0].id;
+    // Delete existing exercise logs for the workout
+    const { error: deleteError } = await supabase
+      .from("exercise_logs")
+      .delete()
+      .eq("workout_id", workout_id);
 
-    if (!workoutID) {
+    if (deleteError) {
       return NextResponse.json(
-        { message: "Workout ID is not set. Please try again." },
+        { message: deleteError.message },
         { status: 400 }
       );
     }
@@ -87,34 +78,31 @@ export async function POST(req: Request) {
 
     // 4️ Build log entries with correct IDs
     const logEntries = exercises.map((ex) => ({
-      workout_id: workoutID,
+      workout_id: workout_id,
       exercise_id: nameToId.get(ex.name),
       set_number: Number(ex.sets), // ensure numeric
       reps: Number(ex.reps),
       weight: Number(ex.weight),
     }));
 
-    // 5 Insert into logs
-    const { error: logError } = await supabase
+    // Insert new exercise logs
+    const { error: insertError } = await supabase
       .from("exercise_logs")
       .insert(logEntries);
-
-    if (logError) {
-      console.log("error3");
-
-      return NextResponse.json({ message: logError.message }, { status: 400 });
+    if (insertError) {
+      return NextResponse.json(
+        { message: insertError.message },
+        { status: 400 }
+      );
     }
-
     return NextResponse.json(
-      {
-        message: "Workout added successfully and exercises logged",
-      },
+      { message: "Workout updated successfully!" },
       { status: 200 }
     );
   } catch (error: any) {
-    console.error("Error adding exercises:", error);
+    console.error("Error updating workout:", error);
     return NextResponse.json(
-      { message: "Internal Server Error" },
+      { message: "An error occurred while updating the workout." },
       { status: 500 }
     );
   }

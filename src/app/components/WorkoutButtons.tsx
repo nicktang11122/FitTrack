@@ -105,6 +105,121 @@ export default function WorkoutButtons({ workoutId }: { workoutId: number }) {
     }
   }, [updateOpen, workoutId]);
 
+  // Function to fetch user ID from Supabase Auth
+  const fetchUserId = async (): Promise<string | null> => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.access_token) return null;
+
+      const response = await fetch("/api/FetchUserID", {
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      });
+
+      if (!response.ok) return null;
+
+      const result = await response.json();
+      return result.userID || null;
+    } catch {
+      return null;
+    }
+  };
+
+  function fadeOutMessage() {
+    setTimeout(() => {
+      setMessageVisible(false);
+    }, 3000);
+
+    setTimeout(() => {
+      setStatusMessage(null);
+    }, 3600);
+  }
+
+  const deleteWorkout = async (workoutId: number) => {
+    const fetchedId = await fetchUserId();
+    if (!fetchedId) {
+      setStatusType("error");
+      setStatusMessage("User ID is not set. Please log in.");
+      setDeleteOpen(false);
+      return;
+    }
+    try {
+      const response = await fetch("/api/DeleteWorkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: fetchedId, workout_id: workoutId }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.message || "Failed to delete workout");
+      setStatusType("success");
+      setStatusMessage("Workout deleted successfully!");
+      window.dispatchEvent(new Event("workout-deleted"));
+      fadeOutMessage();
+    } catch (e) {
+      setStatusType("error");
+      setStatusMessage((e as Error).message || "Failed to delete workout");
+      fadeOutMessage();
+    }
+  };
+
+  // Function to save Workout
+  const handleUpdateWorkout = async (workoutId: number) => {
+    const fetchedId = await fetchUserId();
+
+    //validate id
+    if (!fetchedId) {
+      setStatusType("error");
+      setStatusMessage("User ID is not set. Please log in.");
+      setUpdateOpen(false);
+      return;
+    }
+
+    if (!workoutName || !workoutDate || exercises.length === 0) {
+      setStatusType("error");
+      setStatusMessage("Please fill in all required fields.");
+      setUpdateOpen(false);
+      return;
+    }
+
+    // Convert exercise fields to numbers where applicable
+    const normalizedExercises = exercises.map((ex) => ({
+      ...ex,
+      sets: Number(ex.sets),
+      reps: Number(ex.reps),
+      weight: Number(ex.weight),
+    }));
+
+    try {
+      // Send request to add workout and log exercises
+      const wResponse = await fetch("/api/UpdateWorkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: fetchedId,
+          workout_id: workoutId,
+          workoutName,
+          workoutDate,
+          exercises: normalizedExercises,
+        }),
+      });
+
+      const wData = await wResponse.json();
+      if (!wResponse.ok)
+        throw new Error(wData.message || "Failed to update workout");
+
+      // Success feedback
+      setStatusType("success");
+      setStatusMessage("Workout updated successfully!");
+      window.dispatchEvent(new Event("workout-added"));
+      setUpdateOpen(false);
+      fadeOutMessage;
+    } catch (e) {
+      setStatusType("error");
+      setStatusMessage((e as Error).message || "Failed to update workout");
+      setUpdateOpen(false);
+      fadeOutMessage;
+    }
+  };
   return (
     <div>
       <div className="flex space-x-2">
@@ -116,7 +231,7 @@ export default function WorkoutButtons({ workoutId }: { workoutId: number }) {
         </button>
         <button
           className="bg-primary text-white px-3 py-1 rounded hover:bg-secondary"
-          onClick={() => setDeleteOpen(true)}
+          onClick={() => deleteWorkout(workoutId)}
         >
           Delete
         </button>
@@ -246,9 +361,9 @@ export default function WorkoutButtons({ workoutId }: { workoutId: number }) {
               </button>
               <button
                 className="btn btn-primary"
-                onClick={() => console.log("TODO: Update Workout API")}
+                onClick={() => handleUpdateWorkout(workoutId)}
               >
-                Save Workout
+                Update Workout
               </button>
             </div>
           </DialogPanel>
