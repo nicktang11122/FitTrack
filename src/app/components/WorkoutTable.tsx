@@ -8,7 +8,6 @@ type Workout = {
 };
 export default function WorkoutTable() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  // Move fetchWorkouts outside so both effects can access it
   const fetchWorkouts = async () => {
     try {
       const response = await fetch("/api/FetchWorkouts", {
@@ -38,8 +37,8 @@ export default function WorkoutTable() {
   // Re-fetch when "workout-added" event is dispatched
   useEffect(() => {
     const handler = () => fetchWorkouts();
-    window.addEventListener("workout-added", handler);
-    return () => window.removeEventListener("workout-added", handler);
+    window.addEventListener("table-updated", handler);
+    return () => window.removeEventListener("table-updated", handler);
   }, []);
 
   return (

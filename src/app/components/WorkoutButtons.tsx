@@ -153,7 +153,7 @@ export default function WorkoutButtons({ workoutId }: { workoutId: number }) {
         throw new Error(data.message || "Failed to delete workout");
       setStatusType("success");
       setStatusMessage("Workout deleted successfully!");
-      window.dispatchEvent(new Event("workout-deleted"));
+      window.dispatchEvent(new Event("table-updated"));
       fadeOutMessage();
     } catch (e) {
       setStatusType("error");
@@ -210,14 +210,14 @@ export default function WorkoutButtons({ workoutId }: { workoutId: number }) {
       // Success feedback
       setStatusType("success");
       setStatusMessage("Workout updated successfully!");
-      window.dispatchEvent(new Event("workout-added"));
+      window.dispatchEvent(new Event("table-updated"));
       setUpdateOpen(false);
-      fadeOutMessage;
+      fadeOutMessage();
     } catch (e) {
       setStatusType("error");
       setStatusMessage((e as Error).message || "Failed to update workout");
       setUpdateOpen(false);
-      fadeOutMessage;
+      fadeOutMessage();
     }
   };
   return (
@@ -369,6 +369,18 @@ export default function WorkoutButtons({ workoutId }: { workoutId: number }) {
           </DialogPanel>
         </div>
       </Dialog>
+      {/* Status Message*/}
+      {statusMessage && (
+        <div
+          className={`p-2 rounded ${
+            statusType === "success"
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}
+        >
+          {statusMessage}
+        </div>
+      )}
     </div>
   );
 }
