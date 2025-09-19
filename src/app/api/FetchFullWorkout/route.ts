@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1️⃣ Fetch workout session details
+    // 1Fetch workout session details
     const { data: workoutData, error: workoutError } = await supabase
       .from("workout_sessions")
       .select("sessionName, date")
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2️⃣ Fetch exercises with logs
+    //  Fetch exercises with logs
     const { data: exerciseLogs, error: logsError } = await supabase
       .from("exercise_logs")
       .select(`set_number, reps, weight, exercises!inner(name)`)
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3️⃣ Map exercises into a nice format
+    //  Map exercises
     const exercises: WorkoutExercise[] =
       exerciseLogs?.map((log: any) => ({
         name: log.exercises.name,
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
         weight: log.weight,
       })) || [];
 
-    // 4️⃣ Return structured response
+    // Construct response
     const response: WorkoutResponse = {
       workoutName: workoutData.sessionName,
       workoutDate: workoutData.date,

@@ -101,11 +101,11 @@ export default function AddWorkoutButton() {
   function fadeOutMessage() {
     setTimeout(() => {
       setMessageVisible(false);
-    }, 3000);
+    }, 1000);
 
     setTimeout(() => {
       setStatusMessage(null);
-    }, 3600);
+    }, 1600);
   }
 
   // Function to save Workout
@@ -156,19 +156,19 @@ export default function AddWorkoutButton() {
       // Success feedback
       setStatusType("success");
       setStatusMessage("Workout saved successfully!");
-      window.dispatchEvent(new Event("workout-added"));
+      window.dispatchEvent(new Event("table-updated"));
       setShowDialog(false);
-      fadeOutMessage;
+      fadeOutMessage();
     } catch (e) {
       setStatusType("error");
       setStatusMessage((e as Error).message || "Failed to save workout");
       setShowDialog(false);
-      fadeOutMessage;
+      fadeOutMessage();
     }
   };
 
   return (
-    <div>
+    <div className="p-4">
       <button
         className="btn btn-primary absolute top-4 right-4 hover:btn-secondary"
         onClick={() => setShowDialog(true)}

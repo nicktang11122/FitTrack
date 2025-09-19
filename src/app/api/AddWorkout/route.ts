@@ -62,12 +62,16 @@ export async function POST(req: Request) {
     // Get just the names from exercises
     const exerciseNames = exercises.map((ex: { name: string }) => ex.name);
 
-    // Fetch existing exercises for this user
+    console.log("exerciseNames from request:", exerciseNames);
+    console.log("user_id passed in:", user_id);
+
     const { data: existing, error: fetchError } = await supabase
       .from("exercises")
-      .select("id, name")
+      .select("id, name, created_by")
       .eq("created_by", user_id)
       .in("name", exerciseNames);
+
+    console.log("existing rows from Supabase:", existing);
 
     if (fetchError) {
       console.log("error2");
