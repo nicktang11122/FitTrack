@@ -168,7 +168,7 @@ export default function AddWorkoutButton() {
   };
 
   return (
-    <div>
+    <div className="p-4">
       <button
         className="btn btn-primary absolute top-4 right-4 hover:btn-secondary"
         onClick={() => setShowDialog(true)}

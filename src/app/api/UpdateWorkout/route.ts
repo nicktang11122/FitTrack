@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../utils/supabase/server";
 import { cookies } from "next/headers";
-import { log } from "console";
 
 export async function POST(req: Request) {
   const cookieStore = cookies();
@@ -11,6 +10,7 @@ export async function POST(req: Request) {
     const { user_id, workout_id, workoutName, workoutDate, exercises } =
       await req.json();
 
+    // Validate required fields
     if (
       !user_id ||
       !workout_id ||
@@ -24,6 +24,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
     // Update workout session details
     const { error: updateError } = await supabase
       .from("workout_sessions")
@@ -37,7 +38,44 @@ export async function POST(req: Request) {
       );
     }
 
-    // Delete existing exercise logs for the workout
+    const seen = new Set();
+    const duplicates: string[] = [];
+
+    for (const ex of exercises) {
+      if (seen.has(ex.name)) {
+        duplicates.push(ex.name);
+      }
+      seen.add(ex.name);
+    }
+
+    if (duplicates.length > 0) {
+      return NextResponse.json(
+        {
+          message:
+            "Duplicate exercise(s) in request. Please remove duplicates.",
+          data: duplicates,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Extract exercise names from payload
+    const exerciseNames = exercises.map((ex: { name: string }) => ex.name);
+
+    // Fetch matching exercise IDs from Supabase
+    const { data: existing, error: fetchError } = await supabase
+      .from("exercises")
+      .select("id, name, created_by")
+      .eq("created_by", user_id)
+      .in("name", exerciseNames);
+
+    if (fetchError) {
+      return NextResponse.json(
+        { message: fetchError.message },
+        { status: 400 }
+      );
+    }
+
     const { error: deleteError } = await supabase
       .from("exercise_logs")
       .delete()
@@ -50,37 +88,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get just the names from exercises
-    const exerciseNames = exercises.map((ex: { name: string }) => ex.name);
+    const nameToId = new Map(existing?.map((e) => [e.name, e.id]));
 
-    console.log("exerciseNames from request:", exerciseNames);
-    console.log("user_id passed in:", user_id);
-
-    const { data: existing, error: fetchError } = await supabase
-      .from("exercises")
-      .select("id, name, created_by")
-      .eq("created_by", user_id)
-      .in("name", exerciseNames);
-
-    console.log("existing rows from Supabase:", existing);
-
-    if (fetchError) {
-      console.log("error2");
-
-      return NextResponse.json(
-        { message: fetchError.message },
-        { status: 400 }
-      );
-    }
-
-    // Map exercise names to their IDs
-    const nameToId = new Map(existing.map((e) => [e.name, e.id]));
-
-    // 4️ Build log entries with correct IDs
+    // Build exercise log entries
     const logEntries = exercises.map((ex) => ({
       workout_id: workout_id,
-      exercise_id: nameToId.get(ex.name),
-      set_number: Number(ex.sets), // ensure numeric
+      exercise_id: nameToId.get(ex.name), // assumes exercise already exists in DB
+      set_number: Number(ex.sets),
       reps: Number(ex.reps),
       weight: Number(ex.weight),
     }));
@@ -89,12 +103,14 @@ export async function POST(req: Request) {
     const { error: insertError } = await supabase
       .from("exercise_logs")
       .insert(logEntries);
+
     if (insertError) {
       return NextResponse.json(
         { message: insertError.message },
         { status: 400 }
       );
     }
+
     return NextResponse.json(
       { message: "Workout updated successfully!" },
       { status: 200 }

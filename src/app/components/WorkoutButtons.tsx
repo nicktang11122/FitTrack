@@ -222,6 +222,17 @@ export default function WorkoutButtons({ workoutId }: { workoutId: number }) {
   };
   return (
     <div>
+      {statusMessage && (
+        <div
+          className={`mb-4 p-3 rounded-lg text-center font-medium ${
+            statusType === "success"
+              ? "bg-green-100 text-green-700 border border-green-300"
+              : "bg-red-100 text-red-700 border border-red-300"
+          }`}
+        >
+          {statusMessage}
+        </div>
+      )}
       <div className="flex space-x-2">
         <button
           className="bg-primary text-white px-3 py-1 rounded hover:bg-secondary"
@@ -236,7 +247,6 @@ export default function WorkoutButtons({ workoutId }: { workoutId: number }) {
           Delete
         </button>
       </div>
-
       {/* UPDATE DIALOG */}
       <Dialog
         open={updateOpen}
@@ -369,18 +379,6 @@ export default function WorkoutButtons({ workoutId }: { workoutId: number }) {
           </DialogPanel>
         </div>
       </Dialog>
-      {/* Status Message*/}
-      {statusMessage && (
-        <div
-          className={`p-2 rounded ${
-            statusType === "success"
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-          }`}
-        >
-          {statusMessage}
-        </div>
-      )}
     </div>
   );
 }
